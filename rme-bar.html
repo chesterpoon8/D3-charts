@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html>
+
+<script src="https://d3js.org/d3.v4.min.js"></script>
+<style>
+
+  svg {
+    border:1px solid #f0f
+    fill: gray;
+  }
+
+  .label {
+    font-size: 30px;
+  }
+
+  .x-axis {
+    font-size: 20px;
+  }
+
+  .y-axis {
+    font-size: 20px;
+  }
+
+</style>
+
+<body>
+  <h2>RME Performance (units in minutes)</h2>
+  <div class="g-button-container"></div>
+</body>
+
+
+<script>
+
+var margin = {top: 20, right: 20, bottom: 20, left: 65};
+
+var w = 700 - margin.left - margin.right,
+  h = 500 - margin.top - margin.bottom;
+
+
+d3.tsv("rme.tsv", ready);
+
+function ready(data) {
+
+  data.forEach(function(d) {
+    d.Median = +d.Median;
+  });
+
+  var svg = d3.select("body").append("svg")
+    .attr("width", w + margin.left + margin.right)
+    .attr("height", h + margin.top + margin.bottom)
+    .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  var xscale = d3.scaleBand()
+    .domain(data.map(function(d) { return d.Metric; }))
+    .range([0, w])
+    .padding(0.1);
+
+  var xaxis = d3.axisBottom(xscale)
+    .tickSize([1]);
+
+  var formatTime = d3.timeFormat("%H:%M"),
+    formatMinutes = function(d) { return formatTime(new Date(2017, 0, 1, 0, d));};
+
+  var yscale = d3.scaleLinear()
+    .domain([0, d3.max(data, function (d) { return d.Median })])
+    .range([h,0]);
+
+  var yaxis = d3.axisLeft(yscale)
+    .tickFormat(formatMinutes);
+
+  svg.append("g")
+    .attr("class", "x-axis")
+    .call(xaxis)
+    .attr("transform", "translate(0," + h + ")");
+
+  svg.append("g")
+    .attr("class", "y-axis")
+    .call(yaxis);
+
+  var nonRmeData = data.filter(function(d) {
+    return d.Team == "Non-RME" ;
+  });
+
+  var bars = svg.selectAll(".bar")
+    .data(nonRmeData)
+    .enter()
+    .append("rect")
+    .attr("class", "bar")
+    .attr("x", function(d) { return xscale(d.Metric); })
+    .attr("y", function(d) { return yscale(d.Median); })
+    .attr("width", xscale.bandwidth())
+    .attr("height", function(d) { return h - yscale(d.Median); })
+    .attr("fill", "#4b1e75");
+
+  var labels = svg.selectAll(".label")
+    .data(nonRmeData)
+    .enter()
+    .append("text")
+    .attr("class", "label")
+    .attr("x", function(d) { return xscale(d.Metric); })
+    .attr("y", function(d) { return yscale(d.Median); })
+    .attr("dx", "2.6em")
+    .attr("dy", "1em")
+    .text(function(d) {
+      return d.Median;
+    })
+    .attr("fill", "white");
+
+  var dataByTeamAndMetric = d3.nest()
+    .key(function(d) { return d.Team; })
+    // .key(function(d) { return d.Metric; })
+    .entries(data);
+
+  d3.select(".g-button-container").selectAll("button")
+    .data(dataByTeamAndMetric)
+    .enter()
+    .append("button")
+    .text(function(d) {
+      return d.key;
+    })
+    .on("click", function(d) {
+      updateChart(d);
+    });
+
+  function updateChart(rmeData) {
+
+    var bars = svg.selectAll("rect");
+
+    bars.data(rmeData.values)
+      .transition().duration(500)
+      .attr("height", 0)
+      .attr("x", function(d) { return xscale(d.Metric); })
+      .attr("y", function(d) { return yscale(d.Median); })
+      .attr("width", xscale.bandwidth())
+      .attr("height", function(d) { return h - yscale(d.Median); });
+
+    var labels = svg.selectAll(".label")
+      .remove()
+      .exit()
+      .data(rmeData.values, function(d) {
+        return d.Median;
+      })
+      .enter()
+      .append("text")
+      .attr("class", "label")
+      .attr("x", function(d) { return xscale(d.Metric); })
+      .attr("y", function(d) { return yscale(d.Median); })
+      .attr("dx", "2.6em")
+      .attr("dy", "1em")
+      .text(function(d) {
+        return d.Median;
+      })
+      .attr("fill", "white");
+  }
+}
+
+</script>
